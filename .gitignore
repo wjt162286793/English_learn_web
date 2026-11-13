@@ -13,6 +13,13 @@ dist-ssr
 *.local
 *.zip
 
+# Audio generation (Kokoro models + python caches)
+scripts/.kokoro/
+__pycache__/
+
+# Generated static audio (deploy to the server separately, keep out of git)
+public/audio/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

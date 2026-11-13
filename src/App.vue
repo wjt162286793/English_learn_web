@@ -83,35 +83,6 @@ const currentSections = computed<LessonSection[]>(() => [
   ...activeDisplayUnit.value.articles,
 ])
 const activeSentenceGroup = computed<SentenceGroup>(() => activeUnit.value.sentences)
-const sentenceLines = computed<LessonLine[]>(() =>
-  activeSentenceGroup.value.items.map(toSentenceLine),
-)
-const femaleVoiceName = computed<string>(() => formatVoiceName(femaleVoiceUri.value))
-const maleVoiceName = computed<string>(() => formatVoiceName(maleVoiceUri.value))
-const pronunciationModeLabel = computed<string>(() => {
-  if (pronunciationMode.value === 'natural') {
-    return '口语连读版'
-  }
-  if (pronunciationMode.value === 'dictation') {
-    return '听力辨音版'
-  }
-  return '标准版'
-})
-const pronunciationModeHint = computed<string>(() => {
-  if (pronunciationMode.value === 'natural') {
-    return '会把常见短语压成更自然的口语形式，比如 wanna、gonna、didja。'
-  }
-  if (pronunciationMode.value === 'dictation') {
-    return '会进一步模拟耳朵里更容易听成的样子，更适合做辨音训练。'
-  }
-  return '保留标准表达，适合入门和跟读。'
-})
-const modeOptions: Array<{ value: PronunciationMode; label: string }> = [
-  { value: 'standard', label: '标准版' },
-  { value: 'natural', label: '口语连读版' },
-  { value: 'dictation', label: '听力辨音版' },
-]
-
 function updateViewportState(): void {
   if (typeof window === 'undefined') {
     return
@@ -210,11 +181,6 @@ function getVoiceByUri(voiceUri: string): SpeechSynthesisVoice | null {
   return voices.value.find((voice) => voice.voiceURI === voiceUri) ?? null
 }
 
-function formatVoiceName(voiceUri: string): string {
-  const voice = getVoiceByUri(voiceUri)
-  return voice ? `${voice.name} · ${voice.lang}` : 'Waiting for browser voices'
-}
-
 function pickVoiceByKeywords(
   list: SpeechSynthesisVoice[],
   keywords: string[],
@@ -286,7 +252,8 @@ function getDialogueVoiceRole(
 type AudioRole = 'female' | 'male'
 
 function getAudioRole(line: LessonLine, section?: LessonSection): AudioRole {
-  return getDialogueVoiceRole(line, section) === 'male' ? 'male' : 'female'
+  const resolvedSection = section ?? findSectionByLineId(line.id)
+  return getDialogueVoiceRole(line, resolvedSection) === 'male' ? 'male' : 'female'
 }
 
 function getAudioPath(line: LessonLine, section?: LessonSection): string {
@@ -734,42 +701,6 @@ function handlePlaySentenceGroup(group: SentenceGroup): void {
   playLines(group.items.map(toSentenceLine), { blockId: group.id })
 }
 
-function handlePlayAll(): void {
-  stopSpeaking()
-  playLines(
-    [...currentSections.value.flatMap((section) => section.lines), ...sentenceLines.value],
-    { playWholeUnit: true },
-  )
-}
-
-function handlePreviewVoice(): void {
-  stopSpeaking()
-  const previewSection = buildDisplaySection({
-    id: 'voice-preview',
-    type: 'dialogue',
-    titleEn: 'Voice preview',
-    titleZh: '音色试听',
-    lines: [
-      {
-        id: 'voice-preview-1',
-        speaker: 'Anna',
-        textEn: 'What do you want to do after class?',
-        textZh: '你好，我是 Anna，这是女声音色。',
-      },
-      {
-        id: 'voice-preview-2',
-        speaker: 'Leo',
-        textEn: 'I am going to get you some coffee.',
-        textZh: '你好，我是 Leo，这是男声音色。',
-      },
-    ],
-  }, pronunciationMode.value)
-
-  playLines(previewSection.lines, {
-    section: previewSection,
-  })
-}
-
 function selectUnit(unitId: string, available: boolean): void {
   if (!available) {
     return
@@ -940,69 +871,16 @@ onBeforeUnmount(() => {
       </section>
 
       <section class="control-card">
-        <div class="mode-switch">
-          <button
-            v-for="option in modeOptions"
-            :key="option.value"
-            class="mode-button"
-            :class="{ 'mode-button--active': pronunciationMode === option.value }"
-            type="button"
-            @click="pronunciationMode = option.value"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-
-        <div class="mode-note">
-          <span class="status-pill status-pill--mode">{{ pronunciationModeLabel }}</span>
-          <span class="mode-note__text">{{ pronunciationModeHint }}</span>
-        </div>
-
         <div class="control-card__actions">
-          <button class="primary-button" type="button" @click="handlePlayAll">
-            {{ playingAll ? 'Playing now' : '听全部' }}
-          </button>
-          <button class="secondary-button" type="button" @click="stopSpeaking">停止</button>
           <button class="secondary-button" type="button" @click="showChinese = !showChinese">
             {{ showChinese ? '隐藏中文' : '显示中文' }}
           </button>
           <button class="secondary-button" type="button" @click="showEnglish = !showEnglish">
             {{ showEnglish ? '隐藏英文' : '显示英文' }}
           </button>
-          <button class="secondary-button" type="button" @click="handlePreviewVoice">
-            试听当前模式
-          </button>
         </div>
 
         <div class="control-card__selectors">
-          <label class="field">
-            <span class="field__label">女声音色</span>
-            <select
-              v-model="femaleVoiceUri"
-              class="field__input"
-              :disabled="voices.length === 0"
-            >
-              <option v-if="voices.length === 0" value="">Waiting for voices</option>
-              <option v-for="voice in voices" :key="voice.voiceURI" :value="voice.voiceURI">
-                {{ voice.name }} · {{ voice.lang }}
-              </option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span class="field__label">男声音色</span>
-            <select
-              v-model="maleVoiceUri"
-              class="field__input"
-              :disabled="voices.length === 0"
-            >
-              <option v-if="voices.length === 0" value="">Waiting for voices</option>
-              <option v-for="voice in voices" :key="`male-${voice.voiceURI}`" :value="voice.voiceURI">
-                {{ voice.name }} · {{ voice.lang }}
-              </option>
-            </select>
-          </label>
-
           <label class="field field--small">
             <span class="field__label">朗读速度</span>
             <select v-model="playbackRate" class="field__input">
@@ -1011,18 +889,6 @@ onBeforeUnmount(() => {
               <option value="1.5">1.5x</option>
             </select>
           </label>
-        </div>
-
-        <div class="control-card__status">
-          <span class="status-pill status-pill--female">女声：{{ femaleVoiceName }}</span>
-          <span class="status-pill status-pill--male">男声：{{ maleVoiceName }}</span>
-          <span class="status-pill" :class="{ 'status-pill--warn': !speechSupported }">
-            {{ speechSupported ? 'Browser speech ready' : 'Current browser does not support speech' }}
-          </span>
-          <span v-if="voiceNotice" class="status-pill status-pill--notice">{{ voiceNotice }}</span>
-          <span v-if="!showChinese && !showEnglish" class="status-pill status-pill--quiet">
-            当前是纯听力模式
-          </span>
         </div>
       </section>
 
