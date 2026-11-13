@@ -68,9 +68,11 @@ const activeLineId = ref('')
 const activeBlockId = ref('')
 const playingAll = ref(false)
 const voiceNotice = ref('')
+const audioManifest = ref<Set<string>>(new Set())
 
 let playbackToken = 0
 let probedVoiceUri = ''
+let currentAudio: HTMLAudioElement | null = null
 
 const activeUnit = computed<CourseUnitDetail>(() => unitDetailMap[activeUnitId.value])
 const activeDisplayUnit = computed<CourseUnitDetail>(() =>
@@ -281,6 +283,38 @@ function getDialogueVoiceRole(
   return 'female'
 }
 
+type AudioRole = 'female' | 'male'
+
+function getAudioRole(line: LessonLine, section?: LessonSection): AudioRole {
+  return getDialogueVoiceRole(line, section) === 'male' ? 'male' : 'female'
+}
+
+function getAudioPath(line: LessonLine, section?: LessonSection): string {
+  const role = getAudioRole(line, section)
+  return `/audio/${pronunciationMode.value}/${line.id}-${role}.mp3`
+}
+
+function hasStaticAudio(lines: LessonLine[], section?: LessonSection): boolean {
+  return (
+    audioManifest.value.size > 0 &&
+    lines.every((line) => audioManifest.value.has(getAudioPath(line, section)))
+  )
+}
+
+function loadAudioManifest(): void {
+  void fetch('/audio/manifest.json')
+    .then((response) => (response.ok ? response.json() : []))
+    .then((paths: unknown) => {
+      if (!Array.isArray(paths)) {
+        return
+      }
+      audioManifest.value = new Set(paths.filter((path): path is string => typeof path === 'string'))
+    })
+    .catch(() => {
+      audioManifest.value = new Set()
+    })
+}
+
 function findSectionByLineId(lineId: string): LessonSection | undefined {
   return currentSections.value.find((section) =>
     section.lines.some((line) => line.id === lineId),
@@ -444,10 +478,86 @@ function resetPlaybackState(): void {
 
 function stopSpeaking(): void {
   playbackToken += 1
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.currentTime = 0
+    currentAudio = null
+  }
   if (speechSupported.value) {
     window.speechSynthesis.cancel()
     resetPlaybackState()
   }
+}
+
+function playStaticLines(
+  lines: LessonLine[],
+  options: {
+    section?: LessonSection
+    blockId?: string
+    playWholeUnit?: boolean
+  },
+  currentToken: number,
+): void {
+  const playNext = (index: number): void => {
+    if (currentToken !== playbackToken || index >= lines.length) {
+      if (index >= lines.length) {
+        resetPlaybackState()
+      }
+      return
+    }
+
+    const line = lines[index]
+    const audio = new Audio(getAudioPath(line, options.section))
+    currentAudio = audio
+    activeLineId.value = line.id
+    audio.onended = () => {
+      if (currentToken === playbackToken) {
+        playNext(index + 1)
+      }
+    }
+    audio.onerror = () => {
+      if (currentToken === playbackToken) {
+        voiceNotice.value = '静态音频播放失败，已切换浏览器语音'
+        playLinesWithBrowserVoice(lines.slice(index), options, currentToken)
+      }
+    }
+    void audio.play().catch(() => {
+      audio.onerror?.(new Event('error'))
+    })
+  }
+
+  activeBlockId.value = options.blockId ?? ''
+  playingAll.value = options.playWholeUnit ?? false
+  playNext(0)
+}
+
+function playLinesWithBrowserVoice(
+  lines: LessonLine[],
+  options: {
+    section?: LessonSection
+    blockId?: string
+    playWholeUnit?: boolean
+  },
+  currentToken: number,
+): void {
+  const speakNext = (index: number): void => {
+    if (index >= lines.length) {
+      resetPlaybackState()
+      return
+    }
+    const line = lines[index]
+    speakLineWithFallback(
+      line,
+      index,
+      currentToken,
+      lines,
+      options,
+      getVoiceCandidates(line, options.section),
+      0,
+      speakNext,
+    )
+  }
+  speakNext(0)
 }
 
 function speakLineWithFallback(
@@ -590,33 +700,12 @@ function playLines(
   playingAll.value = options?.playWholeUnit ?? false
   voiceNotice.value = ''
 
-  const speakNext = (index: number): void => {
-    if (currentToken !== playbackToken) {
-      return
-    }
-
-    if (index >= lines.length) {
-      voiceNotice.value = ''
-      resetPlaybackState()
-      return
-    }
-
-    const line = lines[index]
-    const voiceCandidates = getVoiceCandidates(line, options?.section)
-    activeLineId.value = line.id
-    speakLineWithFallback(
-      line,
-      index,
-      currentToken,
-      lines,
-      options ?? {},
-      voiceCandidates,
-      0,
-      speakNext,
-    )
+  if (hasStaticAudio(lines, options?.section)) {
+    playStaticLines(lines, options ?? {}, currentToken)
+    return
   }
 
-  speakNext(0)
+  playLinesWithBrowserVoice(lines, options ?? {}, currentToken)
 }
 
 function handlePlayLine(line: LessonLine): void {
@@ -697,8 +786,10 @@ onMounted(() => {
   speechSupported.value = typeof window !== 'undefined' && 'speechSynthesis' in window
   window.addEventListener('resize', updateViewportState)
   if (!speechSupported.value) {
+    loadAudioManifest()
     return
   }
+  loadAudioManifest()
   loadVoices()
   window.speechSynthesis.addEventListener('voiceschanged', loadVoices)
 })
@@ -720,6 +811,10 @@ onBeforeUnmount(() => {
   if (speechSupported.value) {
     window.speechSynthesis.removeEventListener('voiceschanged', loadVoices)
     window.speechSynthesis.cancel()
+  }
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio = null
   }
 })
 </script>
