@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 import urllib.request
 from pathlib import Path
@@ -26,6 +27,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "src" / "data"
+TOAI_DIR = PROJECT_ROOT / "toai"
 AUDIO_ROOT = PROJECT_ROOT / "public" / "audio"
 MANIFEST_PATH = AUDIO_ROOT / "manifest.json"
 MODEL_DIR = Path(__file__).resolve().parent / ".kokoro"
@@ -256,6 +258,226 @@ def extract_sentences(sources: Dict[str, str]) -> List[dict]:
     return items
 
 
+def strip_markdown(text: str) -> str:
+    text = re.sub(r"<br\s*/?>", " ", text, flags=re.IGNORECASE)
+    return text.replace("**", "").strip()
+
+
+def split_sentences(text: str) -> List[str]:
+    return [
+        sentence.strip()
+        for sentence in re.findall(r"[^.!?]+[.!?]+|[^.!?]+$", text)
+        if sentence.strip()
+    ]
+
+
+def extract_library_lines() -> List[dict]:
+    """Extract playable English sentences from the Markdown study library."""
+    items: List[dict] = []
+    level_one_unit = ""
+    level_one_sentence = 0
+    for raw_line in (TOAI_DIR / "level1.md").read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"^##\s+Unit\s+(\d+)\s+·\s+(.+)$", raw_line.strip())
+        if heading:
+            level_one_unit = f"level1-unit-{int(heading.group(1)):02d}"
+            level_one_sentence = 0
+            continue
+        entry = re.match(r"^\d+\.\s+(.+)$", raw_line.strip())
+        if not level_one_unit or not entry:
+            continue
+        separator = entry.group(1).rfind(" — ")
+        if separator < 0 or not re.search(r"\*\*(.+?)\*\*", entry.group(1)[:separator]):
+            continue
+        level_one_sentence += 1
+        items.append(
+            {
+                "id": f"{level_one_unit}-s{level_one_sentence:03d}",
+                "textEn": strip_markdown(entry.group(1)[:separator]),
+                "source": "level1.md",
+            }
+        )
+
+    noun_index = 0
+    current_noun_category = ""
+    for raw_line in (TOAI_DIR / "noun-img.md").read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"^##\s+(.+)$", raw_line)
+        if heading:
+            current_noun_category = heading.group(1).strip()
+            continue
+        if not current_noun_category or not raw_line.startswith("|"):
+            continue
+        cells = raw_line.split("|")
+        if len(cells) < 6:
+            continue
+        word = strip_markdown(cells[1])
+        example = strip_markdown(cells[4])
+        if not word or word == "英文名词" or re.fullmatch(r"-+", word) or not example:
+            continue
+        noun_index += 1
+        items.append(
+            {
+                "id": f"library-noun-{noun_index:04d}",
+                "textEn": example,
+                "source": "noun-img.md",
+            }
+        )
+
+    abstract_index = 0
+    pending_chinese = False
+    for raw_line in (TOAI_DIR / "abstract-noun-verb-sentences.md").read_text(
+        encoding="utf-8"
+    ).splitlines():
+        if re.match(r"^\d+\.\s*", raw_line.strip()):
+            pending_chinese = True
+            continue
+        english = raw_line.strip()
+        if pending_chinese and re.match(r"^[A-Z]", english):
+            abstract_index += 1
+            items.append(
+                {
+                    "id": f"library-abstract-{abstract_index:03d}",
+                    "textEn": strip_markdown(english),
+                    "source": "abstract-noun-verb-sentences.md",
+                }
+            )
+            pending_chinese = False
+
+    phrase_index = 0
+    pending_phrase = False
+    for raw_line in (TOAI_DIR / "common-phrases-with-simple-words.md").read_text(
+        encoding="utf-8"
+    ).splitlines():
+        if re.match(r"^\d+\.\s+\*\*.+?\*\*\s+—\s+.+$", raw_line.strip()):
+            pending_phrase = True
+            continue
+        example = re.match(r"^\s{3,}(.+?)（(.+)）$", raw_line.rstrip())
+        if pending_phrase and example:
+            phrase_index += 1
+            items.append(
+                {
+                    "id": f"library-phrase-{phrase_index:03d}",
+                    "textEn": strip_markdown(example.group(1)),
+                    "source": "common-phrases-with-simple-words.md",
+                }
+            )
+            pending_phrase = False
+
+    article_path = TOAI_DIR / "short-english-articles-bilingual.md"
+    article_id = ""
+    paragraph_id = ""
+    paragraph_sentences = 0
+    in_english = False
+    for raw_line in article_path.read_text(encoding="utf-8").splitlines():
+        normalized_line = raw_line.strip()
+        heading = re.match(r"^##\s+(\d{2})\.\s+(.+)$", normalized_line)
+        if heading:
+            article_id = f"reading-article-{heading.group(1)}"
+            in_english = False
+            continue
+        paragraph_heading = re.match(
+            r"^\*\*EN\s+—\s+Paragraph\s+(\d+)\*\*$", normalized_line
+        )
+        if paragraph_heading:
+            paragraph_id = (
+                f"{article_id}-p{int(paragraph_heading.group(1)):02d}"
+            )
+            paragraph_sentences = 0
+            in_english = True
+            continue
+        if re.match(r"^\*\*中文\s+—\s+第\s*\d+\s*段\*\*$", normalized_line):
+            in_english = False
+            continue
+        if not in_english or not normalized_line or normalized_line.startswith(">"):
+            continue
+        for sentence in split_sentences(strip_markdown(normalized_line)):
+            paragraph_sentences += 1
+            items.append(
+                {
+                    "id": f"{paragraph_id}-s{paragraph_sentences:02d}",
+                    "textEn": sentence,
+                    "source": "short-english-articles-bilingual.md",
+                }
+            )
+
+    return items
+
+
+def extract_library_words() -> List[dict]:
+    """Extract vocabulary headwords and phrases for standalone pronunciation."""
+    items: List[dict] = []
+    noun_index = 0
+    current_noun_category = ""
+    for raw_line in (TOAI_DIR / "noun-img.md").read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"^##\s+(.+)$", raw_line)
+        if heading:
+            current_noun_category = heading.group(1).strip()
+            continue
+        if not current_noun_category or not raw_line.startswith("|"):
+            continue
+        cells = raw_line.split("|")
+        if len(cells) < 6:
+            continue
+        word = strip_markdown(cells[1])
+        example = strip_markdown(cells[4])
+        if not word or word == "英文名词" or re.fullmatch(r"-+", word) or not example:
+            continue
+        noun_index += 1
+        items.append(
+            {
+                "id": f"library-noun-{noun_index:04d}-word",
+                "textEn": word,
+                "source": "noun-img.md",
+            }
+        )
+
+    abstract_index = 0
+    pending_chinese = False
+    for raw_line in (TOAI_DIR / "abstract-noun-verb-sentences.md").read_text(
+        encoding="utf-8"
+    ).splitlines():
+        if re.match(r"^\d+\.\s*", raw_line.strip()):
+            pending_chinese = True
+            continue
+        english = raw_line.strip()
+        if pending_chinese and re.match(r"^[A-Z]", english):
+            abstract_index += 1
+            focus = re.search(r"\*\*(.+?)\*\*", english)
+            if focus:
+                items.append(
+                    {
+                        "id": f"library-abstract-{abstract_index:03d}-word",
+                        "textEn": strip_markdown(focus.group(1)),
+                        "source": "abstract-noun-verb-sentences.md",
+                    }
+                )
+            pending_chinese = False
+
+    phrase_index = 0
+    pending_phrase = False
+    phrase_text = ""
+    for raw_line in (TOAI_DIR / "common-phrases-with-simple-words.md").read_text(
+        encoding="utf-8"
+    ).splitlines():
+        phrase = re.match(r"^\d+\.\s+\*\*(.+?)\*\*\s+—\s+.+$", raw_line.strip())
+        if phrase:
+            pending_phrase = True
+            phrase_text = strip_markdown(phrase.group(1))
+            continue
+        example = re.match(r"^\s{3,}(.+?)（(.+)）$", raw_line.rstrip())
+        if pending_phrase and example:
+            phrase_index += 1
+            items.append(
+                {
+                    "id": f"library-phrase-{phrase_index:03d}-word",
+                    "textEn": phrase_text,
+                    "source": "common-phrases-with-simple-words.md",
+                }
+            )
+            pending_phrase = False
+
+    return items
+
+
 def build_roles(lines: Iterable[dict]) -> Dict[str, str]:
     """Reproduce getDialogueVoiceRole() from App.vue for every line id."""
     sections: Dict[str, List[Tuple[int, str]]] = {}
@@ -293,6 +515,8 @@ def build_tasks(modes: Sequence[str]) -> Tuple[List[dict], Dict[str, str]]:
     sources = read_data_sources()
     lines = extract_lines(sources)
     sentences = extract_sentences(sources)
+    library_lines = extract_library_lines()
+    library_words = extract_library_words()
     roles = build_roles(lines)
 
     tasks: List[dict] = []
@@ -309,22 +533,44 @@ def build_tasks(modes: Sequence[str]) -> Tuple[List[dict], Dict[str, str]]:
                 }
             )
 
+    for item in library_lines:
+        for mode in modes:
+            tasks.append(
+                {
+                    "mode": mode,
+                    "key": f"{item['id']}-female",
+                    "role": "female",
+                    "text": apply_mode(item["textEn"], mode),
+                }
+            )
+
     if "standard" in modes:
-        # Sentence drills are always played from their raw text, so a single
-        # recording per sentence is enough.
-        for item in sentences:
+        for item in library_words:
             tasks.append(
                 {
                     "mode": "standard",
                     "key": f"{item['id']}-female",
                     "role": "female",
-                    "text": item["textEn"].replace("**", ""),
+                    "text": item["textEn"],
+                }
+            )
+
+    for item in sentences:
+        if "standard" in modes:
+            tasks.append(
+                {
+                    "mode": "standard",
+                    "key": f"{item['id']}-female",
+                    "role": "female",
+                    "text": strip_markdown(item["textEn"]),
                 }
             )
 
     stats = {
         "lines": str(len(lines)),
         "sentences": str(len(sentences)),
+        "library_sentences": str(len(library_lines)),
+        "library_words": str(len(library_words)),
     }
     return tasks, stats
 
@@ -377,11 +623,15 @@ def run_generation(tasks: Sequence[dict], force: bool, limit: Optional[int]) -> 
 
     model, voices = ensure_models()
     kokoro = Kokoro(str(model), str(voices))
+    standard_texts = {
+        task["key"]: task["text"] for task in tasks if task["mode"] == "standard"
+    }
 
     pending = []
-    for task in tasks:
+    ordered_tasks = sorted(tasks, key=lambda task: task["mode"] != "standard")
+    for task in ordered_tasks:
         out_path = AUDIO_ROOT / task["mode"] / f"{task['key']}.mp3"
-        if out_path.exists() and not force:
+        if out_path.exists() and out_path.stat().st_size > 0 and not force:
             continue
         pending.append((task, out_path))
     if limit is not None:
@@ -396,6 +646,16 @@ def run_generation(tasks: Sequence[dict], force: bool, limit: Optional[int]) -> 
     failed: List[Tuple[str, str]] = []
     for index, (task, out_path) in enumerate(pending, 1):
         try:
+            standard_audio = AUDIO_ROOT / "standard" / f"{task['key']}.mp3"
+            if (
+                task["mode"] != "standard"
+                and task["text"] == standard_texts.get(task["key"])
+                and standard_audio.exists()
+                and standard_audio.stat().st_size > 0
+            ):
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(standard_audio, out_path)
+                continue
             samples, sample_rate = kokoro.create(
                 task["text"],
                 voice=VOICE_BY_ROLE[task["role"]],
@@ -463,7 +723,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     tasks, stats = build_tasks(modes)
     print(
         "Course data: "
-        f"{stats['lines']} dialogue/article lines, {stats['sentences']} sentence drills"
+        f"{stats['lines']} dialogue/article lines, "
+        f"{stats['sentences']} sentence drills, "
+        f"{stats['library_sentences']} Markdown study sentences, "
+        f"{stats['library_words']} vocabulary headwords"
     )
     print(f"Modes: {', '.join(modes)} -> {len(tasks)} planned file(s)")
 

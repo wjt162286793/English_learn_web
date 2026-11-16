@@ -9,7 +9,7 @@
 > | Unit 1 | 个人生活 Personal Life            | 50     |
 > | Unit 2 | 日常生活 Daily Routine & Shopping | 50     |
 > | Unit 3 | 工作与学习 Work & Study           | 50     |
-> | Unit 4 | 旅行与交通 Travel & Transport     | 51     |
+> | Unit 4 | 旅行与交通 Travel & Transport     | 50     |
 > | Unit 5 | 健康与情绪 Health & Feelings      | 50     |
 > | Unit 6 | 社交与娱乐 Social & Entertainment | 50     |
 

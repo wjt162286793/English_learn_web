@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import Breadcrumbs from './components/Breadcrumbs.vue'
 import ContentSection from './components/ContentSection.vue'
 import SentenceBlock from './components/SentenceBlock.vue'
+import StudyLibrary from './components/StudyLibrary.vue'
 import { courseBands, unitDetailMap } from './data/course'
+import {
+  professionalSections,
+  readingSections,
+  vocabularySections,
+} from './data/studyLibrary'
 import type {
+  CourseUnitSummary,
   CourseUnitDetail,
   LessonLine,
   LessonSection,
   SentenceGroup,
   SentenceItem,
 } from './types/course'
+import type { StudySection } from './data/studyLibrary'
+import type { BreadcrumbItem } from './types/navigation'
 
 const femaleVoiceKeywords = [
   'zira',
@@ -51,7 +61,17 @@ const maleVoiceKeywords = [
 const voiceRetryCount = 3
 
 type PronunciationMode = 'standard' | 'natural' | 'dictation'
+type StudyMode = 'level' | 'vocabulary' | 'reading' | 'professional'
+type ActiveMode = 'home' | StudyMode
 
+interface PlaybackOptions {
+  blockId?: string
+  playWholeUnit?: boolean
+  section?: LessonSection
+  audioMode?: PronunciationMode
+}
+
+const activeMode = ref<ActiveMode>('home')
 const activeUnitId = ref('a1-l1-u1')
 const showChinese = ref(true)
 const showEnglish = ref(true)
@@ -83,6 +103,143 @@ const currentSections = computed<LessonSection[]>(() => [
   ...activeDisplayUnit.value.articles,
 ])
 const activeSentenceGroup = computed<SentenceGroup>(() => activeUnit.value.sentences)
+const activeLibraryMode = computed(() =>
+  activeMode.value === 'level' || activeMode.value === 'home' ? 'reading' : activeMode.value,
+)
+const activeLibrarySections = computed(() => {
+  if (activeMode.value === 'vocabulary') {
+    return vocabularySections
+  }
+  if (activeMode.value === 'professional') {
+    return professionalSections
+  }
+  return readingSections
+})
+const activeCourseBand = computed(() =>
+  courseBands.find((band) => band.id === activeUnit.value.bandCode),
+)
+const activeCourseLevel = computed(() =>
+  activeCourseBand.value?.levels.find((level) => level.id === activeUnit.value.levelId),
+)
+const currentLibrarySection = ref<BreadcrumbItem | null>(null)
+const libraryNavigationResetKey = ref(0)
+const studyModes: Array<{
+  id: StudyMode
+  number: string
+  title: string
+  description: string
+  detail: string
+}> = [
+  {
+    id: 'level',
+    number: '01',
+    title: 'Level 基础练习',
+    description: '从 Level 1 开始，按单元学习对话、句子和短文。',
+    detail: '等级路线 · 循序渐进',
+  },
+  {
+    id: 'vocabulary',
+    number: '02',
+    title: '词汇准备',
+    description: '名词、抽象词和常用短语。看词、听音，再用例句巩固。',
+    detail: '分类词库 · 逐条练习',
+  },
+  {
+    id: 'reading',
+    number: '03',
+    title: '语句与文章',
+    description: '从长句到双语文章，练习理解、跟读和听力。',
+    detail: '长句拆解 · 段落阅读',
+  },
+  {
+    id: 'professional',
+    number: '04',
+    title: '专业练习',
+    description: '围绕职场、商业和科技等主题积累实用表达。',
+    detail: '主题学习 · 后续扩展',
+  },
+]
+
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
+  if (activeMode.value === 'home') {
+    return []
+  }
+
+  const mode = studyModes.find((item) => item.id === activeMode.value)
+  const items: BreadcrumbItem[] = [
+    { id: 'home', label: '模式选择' },
+    { id: 'mode', label: mode?.title ?? '学习模式' },
+  ]
+
+  if (activeMode.value === 'level') {
+    if (activeCourseBand.value) {
+      items.push({ id: 'band', label: activeCourseBand.value.subtitle })
+    }
+    if (activeCourseLevel.value) {
+      items.push({ id: 'level', label: activeCourseLevel.value.title })
+    }
+    items.push({
+      id: 'unit',
+      label: `Unit ${activeUnit.value.unitNumber} · ${activeUnit.value.titleZh}`,
+      current: true,
+    })
+    return items
+  }
+
+  if (currentLibrarySection.value) {
+    items.push({ ...currentLibrarySection.value, current: true })
+  } else {
+    items[1].current = true
+  }
+  return items
+})
+
+function selectStudyMode(mode: ActiveMode): void {
+  stopSpeaking()
+  activeMode.value = mode
+  currentLibrarySection.value = null
+  showMobileRoadmap.value = false
+}
+
+function handleLibrarySectionChange(section: StudySection | null): void {
+  currentLibrarySection.value = section
+    ? { id: section.id, label: section.titleZh || section.titleEn }
+    : null
+}
+
+function selectFirstAvailableUnit(units: CourseUnitSummary[]): void {
+  const unit = units.find((candidate) => candidate.available)
+  if (unit) {
+    selectUnit(unit.id, unit.available)
+  }
+}
+
+function handleBreadcrumbNavigation(id: string): void {
+  if (id === 'home') {
+    selectStudyMode('home')
+    return
+  }
+  if (id === 'mode') {
+    if (activeMode.value === 'level') {
+      selectFirstAvailableUnit(
+        courseBands.flatMap((band) => band.levels).flatMap((level) => level.units),
+      )
+    } else {
+      libraryNavigationResetKey.value += 1
+    }
+    return
+  }
+  if (id === 'band') {
+    selectFirstAvailableUnit(
+      activeCourseBand.value?.levels.flatMap((level) => level.units) ?? [],
+    )
+    return
+  }
+  if (id === 'level') {
+    selectFirstAvailableUnit(activeCourseLevel.value?.units ?? [])
+  }
+}
+
 function updateViewportState(): void {
   if (typeof window === 'undefined') {
     return
@@ -256,15 +413,23 @@ function getAudioRole(line: LessonLine, section?: LessonSection): AudioRole {
   return getDialogueVoiceRole(line, resolvedSection) === 'male' ? 'male' : 'female'
 }
 
-function getAudioPath(line: LessonLine, section?: LessonSection): string {
+function getAudioPath(
+  line: LessonLine,
+  section?: LessonSection,
+  mode: PronunciationMode = pronunciationMode.value,
+): string {
   const role = getAudioRole(line, section)
-  return `/audio/${pronunciationMode.value}/${line.id}-${role}.mp3`
+  return `/audio/${mode}/${line.id}-${role}.mp3`
 }
 
-function hasStaticAudio(lines: LessonLine[], section?: LessonSection): boolean {
+function hasStaticAudio(
+  lines: LessonLine[],
+  section?: LessonSection,
+  mode: PronunciationMode = pronunciationMode.value,
+): boolean {
   return (
     audioManifest.value.size > 0 &&
-    lines.every((line) => audioManifest.value.has(getAudioPath(line, section)))
+    lines.every((line) => audioManifest.value.has(getAudioPath(line, section, mode)))
   )
 }
 
@@ -458,11 +623,7 @@ function stopSpeaking(): void {
 
 function playStaticLines(
   lines: LessonLine[],
-  options: {
-    section?: LessonSection
-    blockId?: string
-    playWholeUnit?: boolean
-  },
+  options: PlaybackOptions,
   currentToken: number,
 ): void {
   const playNext = (index: number): void => {
@@ -474,7 +635,7 @@ function playStaticLines(
     }
 
     const line = lines[index]
-    const audio = new Audio(getAudioPath(line, options.section))
+    const audio = new Audio(getAudioPath(line, options.section, options.audioMode))
     currentAudio = audio
     activeLineId.value = line.id
     audio.onended = () => {
@@ -500,11 +661,7 @@ function playStaticLines(
 
 function playLinesWithBrowserVoice(
   lines: LessonLine[],
-  options: {
-    section?: LessonSection
-    blockId?: string
-    playWholeUnit?: boolean
-  },
+  options: PlaybackOptions,
   currentToken: number,
 ): void {
   const speakNext = (index: number): void => {
@@ -532,11 +689,7 @@ function speakLineWithFallback(
   index: number,
   currentToken: number,
   lines: LessonLine[],
-  options: {
-    blockId?: string
-    playWholeUnit?: boolean
-    section?: LessonSection
-  },
+  options: PlaybackOptions,
   voiceCandidates: SpeechSynthesisVoice[],
   candidateIndex: number,
   speakNext: (index: number) => void,
@@ -649,11 +802,7 @@ function speakLineWithFallback(
 
 function playLines(
   lines: LessonLine[],
-  options?: {
-    blockId?: string
-    playWholeUnit?: boolean
-    section?: LessonSection
-  },
+  options?: PlaybackOptions,
 ): void {
   if (!speechSupported.value || lines.length === 0) {
     return
@@ -667,7 +816,7 @@ function playLines(
   playingAll.value = options?.playWholeUnit ?? false
   voiceNotice.value = ''
 
-  if (hasStaticAudio(lines, options?.section)) {
+  if (hasStaticAudio(lines, options?.section, options?.audioMode)) {
     playStaticLines(lines, options ?? {}, currentToken)
     return
   }
@@ -681,6 +830,16 @@ function handlePlayLine(line: LessonLine): void {
     blockId: findSectionByLineId(line.id)?.id ?? '',
     section: findSectionByLineId(line.id),
   })
+}
+
+function handlePlayWord(line: LessonLine): void {
+  stopSpeaking()
+  playLines([line], { blockId: line.id, audioMode: 'standard' })
+}
+
+function handlePlayLibraryLines(lines: LessonLine[], blockId: string): void {
+  stopSpeaking()
+  playLines(lines, { blockId })
 }
 
 function handlePlaySection(section: LessonSection): void {
@@ -751,7 +910,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-shell">
+  <div
+    class="page-shell"
+    :class="{
+      'page-shell--library': activeMode !== 'level',
+      'page-shell--home': activeMode === 'home',
+    }"
+  >
     <div
       v-if="isMobileViewport && showMobileRoadmap"
       class="mobile-backdrop"
@@ -759,7 +924,7 @@ onBeforeUnmount(() => {
     />
 
     <aside
-      v-if="!isMobileViewport || showMobileRoadmap"
+      v-if="activeMode === 'level' && (!isMobileViewport || showMobileRoadmap)"
       class="sidebar"
       :class="{ 'sidebar--drawer': isMobileViewport }"
     >
@@ -775,9 +940,9 @@ onBeforeUnmount(() => {
             关闭目录
           </button>
         </div>
-        <h1 class="sidebar__title">从 A1 到 B1 的个人英语学习站</h1>
+        <h1 class="sidebar__title">从 A1 到 B2 的英语学习站</h1>
         <p class="sidebar__desc">
-          Level 1 到 Level 3 的 18 个单元已全部就绪。每个单元包含对话、文章和句子三种模块，并支持标准版、口语连读版和听力辨音版三种训练方式。
+          课程路线规划至 B2。已完成的课程可以逐句听读；其他等级会随着内容建设逐步开放。词汇、文章和专业练习可在顶部模式中切换。
         </p>
       </div>
 
@@ -821,8 +986,56 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
-    <main class="content">
-      <section v-if="isMobileViewport" class="mobile-toolbar">
+    <main v-if="activeMode === 'home'" class="mode-home">
+      <header class="mode-home__hero">
+        <div class="mode-home__brand">
+          <span class="mode-home__mark">E</span>
+          <span>ENGLISH LEARNING STUDIO</span>
+        </div>
+        <p class="mode-home__eyebrow">YOUR DAILY ENGLISH PRACTICE</p>
+        <h1>今天，想用哪种方式练英语？</h1>
+        <p class="mode-home__intro">
+          选择一个学习模式，从词汇、等级、文章或专业场景开始。每种模式都支持听力练习和中英文显示控制。
+        </p>
+        <div class="mode-home__meta">
+          <span class="mode-home__status"></span>
+          当前学习路线规划至 B2，课程内容会逐步开放
+        </div>
+      </header>
+
+      <section class="mode-grid" aria-label="选择学习模式">
+        <button
+          v-for="mode in studyModes"
+          :key="mode.id"
+          class="mode-card"
+          :class="`mode-card--${mode.id}`"
+          type="button"
+          @click="selectStudyMode(mode.id)"
+        >
+          <span class="mode-card__number">{{ mode.number }}</span>
+          <span class="mode-card__arrow" aria-hidden="true">↗</span>
+          <h2>{{ mode.title }}</h2>
+          <p>{{ mode.description }}</p>
+          <span class="mode-card__footer">
+            <span>{{ mode.detail }}</span>
+            <strong>进入练习</strong>
+          </span>
+        </button>
+      </section>
+
+      <footer class="mode-home__footer">
+        <span>推荐顺序</span>
+        <p>Level 打基础 → 词汇扩展 → 语句阅读 → 专业内容</p>
+      </footer>
+    </main>
+
+    <main v-else class="content">
+      <header class="workspace-toolbar">
+        <Breadcrumbs :items="breadcrumbItems" @navigate="handleBreadcrumbNavigation" />
+        <span class="workspace-toolbar__hint">听、读、隐藏、自测，按自己的节奏练习</span>
+      </header>
+
+      <section v-if="activeMode === 'level' && isMobileViewport" class="mobile-toolbar">
         <button
           class="mobile-toolbar__button"
           type="button"
@@ -838,7 +1051,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="hero-card">
+      <section v-if="activeMode === 'level'" class="hero-card">
         <div class="hero-card__main">
           <div class="hero-card__heading">
             <p class="hero-card__eyebrow">
@@ -870,6 +1083,21 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
+      <section v-else class="hero-card library-hero">
+        <div>
+          <p class="hero-card__eyebrow">STUDY LIBRARY</p>
+          <h2 class="hero-card__title">
+            {{ studyModes.find((mode) => mode.id === activeMode)?.title }}
+          </h2>
+          <p class="hero-card__subtitle">
+            {{ studyModes.find((mode) => mode.id === activeMode)?.description }}
+          </p>
+        </div>
+        <p class="library-hero__note">
+          每条英文内容都可以单独播放。你可以隐藏英文或中文，使用听力练习；文章支持逐句、逐段和全文播放。
+        </p>
+      </section>
+
       <section class="control-card">
         <div class="control-card__actions">
           <button class="secondary-button" type="button" @click="showChinese = !showChinese">
@@ -879,20 +1107,9 @@ onBeforeUnmount(() => {
             {{ showEnglish ? '隐藏英文' : '显示英文' }}
           </button>
         </div>
-
-        <div class="control-card__selectors">
-          <label class="field field--small">
-            <span class="field__label">朗读速度</span>
-            <select v-model="playbackRate" class="field__input">
-              <option value="1">1.0x</option>
-              <option value="1.3">1.3x</option>
-              <option value="1.5">1.5x</option>
-            </select>
-          </label>
-        </div>
       </section>
 
-      <section class="group-card">
+      <section v-if="activeMode === 'level'" class="group-card">
         <div class="group-card__header">
           <div>
             <p class="group-card__eyebrow">Practice 01</p>
@@ -916,7 +1133,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="group-card">
+      <section v-if="activeMode === 'level'" class="group-card">
         <div class="group-card__header">
           <div>
             <p class="group-card__eyebrow">Practice 02</p>
@@ -940,7 +1157,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="group-card">
+      <section v-if="activeMode === 'level'" class="group-card">
         <div class="group-card__header">
           <div>
             <p class="group-card__eyebrow">Practice 03</p>
@@ -960,6 +1177,20 @@ onBeforeUnmount(() => {
           />
         </div>
       </section>
+
+      <StudyLibrary
+        v-else
+        :mode="activeLibraryMode"
+        :sections="activeLibrarySections"
+        :show-english="showEnglish"
+        :show-chinese="showChinese"
+        :active-line-id="activeLineId"
+        :navigation-reset-key="libraryNavigationResetKey"
+        @play-line="handlePlayLine"
+        @play-word="handlePlayWord"
+        @play-lines="handlePlayLibraryLines"
+        @section-change="handleLibrarySectionChange"
+      />
     </main>
   </div>
 </template>
@@ -976,6 +1207,284 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at top left, rgba(139, 92, 246, 0.1), transparent 26%),
     linear-gradient(180deg, #faf8ff 0%, #f7f9fc 100%);
+}
+
+.page-shell--library {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.page-shell--home {
+  min-height: 100vh;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.page-shell--library .content {
+  width: min(1280px, 100%);
+  max-width: none;
+  margin: 0 auto;
+}
+
+.mode-home {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: clamp(12px, 3vw, 34px) 0 20px;
+}
+
+.mode-home__hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(28px, 5vw, 58px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(167, 139, 250, 0.35), transparent 28%),
+    linear-gradient(125deg, #211a33 0%, #3c2c65 56%, #5740a1 100%);
+  box-shadow: 0 24px 54px rgba(49, 35, 87, 0.2);
+  color: #ffffff;
+
+  h1 {
+    max-width: 700px;
+    margin: 14px 0 12px;
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.13;
+    letter-spacing: -0.035em;
+  }
+}
+
+.mode-home__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: clamp(38px, 6vw, 70px);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+}
+
+.mode-home__mark {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.mode-home__eyebrow {
+  margin: 0;
+  color: #c4b5fd;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.19em;
+}
+
+.mode-home__intro {
+  max-width: 650px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.mode-home__meta {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 24px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+}
+
+.mode-home__status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a7f3d0;
+  box-shadow: 0 0 0 4px rgba(167, 243, 208, 0.12);
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.mode-card {
+  position: relative;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 23px 25px 20px;
+  overflow: hidden;
+  border: 1px solid #e9e4f1;
+  border-radius: 22px;
+  background: #ffffff;
+  color: #282331;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(38, 27, 58, 0.045);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    border-color: #b8a4ed;
+    box-shadow: 0 20px 38px rgba(55, 38, 95, 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(124, 58, 237, 0.25);
+    outline-offset: 3px;
+  }
+
+  h2 {
+    margin: 24px 0 7px;
+    color: #241e30;
+    font-size: 21px;
+    line-height: 1.3;
+  }
+
+  > p {
+    max-width: 460px;
+    margin: 0;
+    color: #756c80;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+}
+
+.mode-card__number {
+  color: #795bd0;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.mode-card__arrow {
+  position: absolute;
+  top: 19px;
+  right: 21px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #f3efff;
+  color: #6244bd;
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.mode-card:hover .mode-card__arrow {
+  transform: translate(2px, -2px);
+}
+
+.mode-card__footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 20px;
+  color: #92899d;
+  font-size: 11px;
+
+  strong {
+    color: #6244bd;
+    font-size: 12px;
+  }
+}
+
+.mode-card--level {
+  border-top: 3px solid #7651d4;
+}
+
+.mode-card--vocabulary {
+  border-top: 3px solid #3c9a87;
+
+  .mode-card__number,
+  .mode-card__footer strong {
+    color: #277d6d;
+  }
+
+  .mode-card__arrow {
+    background: #e9f7f3;
+    color: #277d6d;
+  }
+}
+
+.mode-card--reading {
+  border-top: 3px solid #4c7ed9;
+
+  .mode-card__number,
+  .mode-card__footer strong {
+    color: #386ac4;
+  }
+
+  .mode-card__arrow {
+    background: #edf3ff;
+    color: #386ac4;
+  }
+}
+
+.mode-card--professional {
+  border-top: 3px solid #d28a42;
+
+  .mode-card__number,
+  .mode-card__footer strong {
+    color: #a76525;
+  }
+
+  .mode-card__arrow {
+    background: #fff4e8;
+    color: #a76525;
+  }
+}
+
+.mode-home__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 0 4px;
+  color: #8b8296;
+  font-size: 12px;
+
+  span {
+    color: #6b5a91;
+    font-weight: 800;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.workspace-toolbar {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.workspace-toolbar__hint {
+  color: #a39aaa;
+  font-size: 12px;
 }
 
 .mobile-backdrop {
@@ -1187,6 +1696,68 @@ onBeforeUnmount(() => {
   gap: 18px;
 }
 
+.study-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.study-mode-button {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 14px 16px;
+  border: 1px solid #ece8f8;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+
+  strong {
+    font-size: 14px;
+  }
+
+  span {
+    color: #7b7286;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: #b8a4ed;
+  }
+}
+
+.study-mode-button--active {
+  border-color: #7c3aed;
+  background: #f3ecff;
+  color: #5b21b6;
+
+  span {
+    color: #7056a8;
+  }
+}
+
+.library-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.library-hero__note {
+  max-width: 430px;
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
 .mobile-toolbar {
   display: flex;
   flex-direction: column;
@@ -1357,7 +1928,6 @@ onBeforeUnmount(() => {
 }
 
 .control-card__actions,
-.control-card__selectors,
 .control-card__status {
   display: flex;
   gap: 12px;
@@ -1389,39 +1959,6 @@ onBeforeUnmount(() => {
 .secondary-button {
   background: #f5f3ff;
   color: #5b21b6;
-}
-
-.field {
-  min-width: 250px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field--small {
-  min-width: 140px;
-}
-
-.field__label {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.field__input {
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid #ddd6fe;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #111827;
-  font-size: 14px;
-  outline: none;
-
-  &:focus {
-    border-color: #7c3aed;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
-  }
 }
 
 .status-pill {
@@ -1492,15 +2029,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1280px) {
-  .page-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: static;
-    height: auto;
-  }
-
   .content {
     max-width: none;
   }
@@ -1508,6 +2036,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .page-shell {
+    grid-template-columns: minmax(0, 1fr);
     padding: 16px;
     gap: 16px;
   }
@@ -1540,14 +2069,12 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .control-card__selectors {
-    flex-direction: column;
+  .study-mode-switch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .field,
-  .field--small {
-    min-width: 0;
-    width: 100%;
+  .mode-home {
+    padding-top: 8px;
   }
 
   .primary-button,
@@ -1579,6 +2106,30 @@ onBeforeUnmount(() => {
     font-size: 28px;
   }
 
+  .study-mode-switch {
+    gap: 8px;
+  }
+
+  .study-mode-button {
+    padding: 12px;
+  }
+
+  .library-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .workspace-toolbar__hint {
+    display: none;
+  }
+
+  .mode-home__footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .hero-card__stats {
     grid-template-columns: 1fr;
   }
@@ -1604,6 +2155,28 @@ onBeforeUnmount(() => {
   .control-card__status {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .mode-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mode-home__hero {
+    border-radius: 23px;
+  }
+
+  .mode-home__brand {
+    margin-bottom: 44px;
+  }
+
+  .mode-card {
+    min-height: 200px;
+  }
+
+  .workspace-toolbar {
+    min-height: 40px;
   }
 }
 </style>

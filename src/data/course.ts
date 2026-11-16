@@ -213,6 +213,58 @@ export const courseBands: CourseBand[] = [
       },
     ],
   },
+  {
+    id: 'B2',
+    label: 'Upper intermediate',
+    subtitle: '中高级 B2',
+    levels: [
+      {
+        id: 'level-10',
+        levelNumber: 10,
+        title: 'Level 10',
+        bandCode: 'B2',
+        bandLabel: 'Upper intermediate',
+        units: [
+          { id: 'b2-l10-u1', unitNumber: 1, titleEn: 'Critical thinking', titleZh: '批判性思维', available: false },
+          { id: 'b2-l10-u2', unitNumber: 2, titleEn: 'Media and influence', titleZh: '媒体与影响力', available: false },
+          { id: 'b2-l10-u3', unitNumber: 3, titleEn: 'Science and ethics', titleZh: '科学与伦理', available: false },
+          { id: 'b2-l10-u4', unitNumber: 4, titleEn: 'Public debate', titleZh: '公共讨论', available: false },
+          { id: 'b2-l10-u5', unitNumber: 5, titleEn: 'Culture and identity', titleZh: '文化与身份', available: false },
+          { id: 'b2-l10-u6', unitNumber: 6, titleEn: 'Evidence and argument', titleZh: '证据与论证', available: false },
+        ],
+      },
+      {
+        id: 'level-11',
+        levelNumber: 11,
+        title: 'Level 11',
+        bandCode: 'B2',
+        bandLabel: 'Upper intermediate',
+        units: [
+          { id: 'b2-l11-u1', unitNumber: 1, titleEn: 'Leadership and teams', titleZh: '领导力与团队', available: false },
+          { id: 'b2-l11-u2', unitNumber: 2, titleEn: 'Sales strategy', titleZh: '销售策略', available: false },
+          { id: 'b2-l11-u3', unitNumber: 3, titleEn: 'Software and systems', titleZh: '软件与系统', available: false },
+          { id: 'b2-l11-u4', unitNumber: 4, titleEn: 'Negotiation and conflict', titleZh: '谈判与冲突', available: false },
+          { id: 'b2-l11-u5', unitNumber: 5, titleEn: 'Finance and risk', titleZh: '财务与风险', available: false },
+          { id: 'b2-l11-u6', unitNumber: 6, titleEn: 'Presenting proposals', titleZh: '展示提案', available: false },
+        ],
+      },
+      {
+        id: 'level-12',
+        levelNumber: 12,
+        title: 'Level 12',
+        bandCode: 'B2',
+        bandLabel: 'Upper intermediate',
+        units: [
+          { id: 'b2-l12-u1', unitNumber: 1, titleEn: 'Global challenges', titleZh: '全球挑战', available: false },
+          { id: 'b2-l12-u2', unitNumber: 2, titleEn: 'Literature and interpretation', titleZh: '文学与解读', available: false },
+          { id: 'b2-l12-u3', unitNumber: 3, titleEn: 'News and public affairs', titleZh: '新闻与公共事务', available: false },
+          { id: 'b2-l12-u4', unitNumber: 4, titleEn: 'Research and innovation', titleZh: '研究与创新', available: false },
+          { id: 'b2-l12-u5', unitNumber: 5, titleEn: 'Complex life decisions', titleZh: '复杂的人生决策', available: false },
+          { id: 'b2-l12-u6', unitNumber: 6, titleEn: 'Long-form discussion', titleZh: '长篇讨论', available: false },
+        ],
+      },
+    ],
+  },
 ]
 
 const level1UnitDetails: Array<Omit<CourseUnitDetail, 'sentences'>> = [

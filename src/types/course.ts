@@ -38,13 +38,13 @@ export interface CourseLevel {
   id: string
   levelNumber: number
   title: string
-  bandCode: 'A1' | 'A2' | 'B1'
+  bandCode: 'A1' | 'A2' | 'B1' | 'B2'
   bandLabel: string
   units: CourseUnitSummary[]
 }
 
 export interface CourseBand {
-  id: 'A1' | 'A2' | 'B1'
+  id: 'A1' | 'A2' | 'B1' | 'B2'
   label: string
   subtitle: string
   levels: CourseLevel[]
@@ -53,7 +53,7 @@ export interface CourseBand {
 export interface CourseUnitDetail extends CourseUnitSummary {
   levelId: string
   levelTitle: string
-  bandCode: 'A1' | 'A2' | 'B1'
+  bandCode: 'A1' | 'A2' | 'B1' | 'B2'
   summaryEn: string
   summaryZh: string
   dialogues: LessonSection[]
