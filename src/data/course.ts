@@ -17,6 +17,30 @@ import {
   sentenceGroups as level3bSentenceGroups,
   unitDetails as level3bUnitDetails,
 } from './level3b'
+import {
+  sentenceGroups as level4SentenceGroups,
+  unitDetails as level4UnitDetails,
+} from './level4'
+import {
+  sentenceGroups as level5SentenceGroups,
+  unitDetails as level5UnitDetails,
+} from './level5'
+import {
+  sentenceGroups as level6SentenceGroups,
+  unitDetails as level6UnitDetails,
+} from './level6'
+import {
+  sentenceGroups as level7SentenceGroups,
+  unitDetails as level7UnitDetails,
+} from './level7'
+import {
+  sentenceGroups as level8SentenceGroups,
+  unitDetails as level8UnitDetails,
+} from './level8'
+import {
+  sentenceGroups as level9SentenceGroups,
+  unitDetails as level9UnitDetails,
+} from './level9'
 
 const level1Units = [
   {
@@ -121,12 +145,12 @@ export const courseBands: CourseBand[] = [
         bandCode: 'A2',
         bandLabel: 'Elementary',
         units: [
-          { id: 'a2-l4-u1', unitNumber: 1, titleEn: 'Entertainment', titleZh: '娱乐', available: false },
-          { id: 'a2-l4-u2', unitNumber: 2, titleEn: 'Describing people', titleZh: '描述他人', available: false },
-          { id: 'a2-l4-u3', unitNumber: 3, titleEn: 'The past', titleZh: '过去', available: false },
-          { id: 'a2-l4-u4', unitNumber: 4, titleEn: 'Milestones', titleZh: '重大事件', available: false },
-          { id: 'a2-l4-u5', unitNumber: 5, titleEn: 'Welcome', titleZh: '欢迎', available: false },
-          { id: 'a2-l4-u6', unitNumber: 6, titleEn: 'Vacation', titleZh: '度假', available: false },
+          { id: 'a2-l4-u1', unitNumber: 1, titleEn: 'Entertainment', titleZh: '娱乐', available: true },
+          { id: 'a2-l4-u2', unitNumber: 2, titleEn: 'Describing people', titleZh: '描述他人', available: true },
+          { id: 'a2-l4-u3', unitNumber: 3, titleEn: 'The past', titleZh: '过去', available: true },
+          { id: 'a2-l4-u4', unitNumber: 4, titleEn: 'Milestones', titleZh: '人生重要时刻', available: true },
+          { id: 'a2-l4-u5', unitNumber: 5, titleEn: 'Welcome', titleZh: '欢迎与接待', available: true },
+          { id: 'a2-l4-u6', unitNumber: 6, titleEn: 'Vacation', titleZh: '度假', available: true },
         ],
       },
       {
@@ -136,12 +160,12 @@ export const courseBands: CourseBand[] = [
         bandCode: 'A2',
         bandLabel: 'Elementary',
         units: [
-          { id: 'a2-l5-u1', unitNumber: 1, titleEn: 'Travel', titleZh: '旅行', available: false },
-          { id: 'a2-l5-u2', unitNumber: 2, titleEn: 'Making decisions', titleZh: '做决定', available: false },
-          { id: 'a2-l5-u3', unitNumber: 3, titleEn: 'Telling stories', titleZh: '讲述故事', available: false },
-          { id: 'a2-l5-u4', unitNumber: 4, titleEn: 'Going to a restaurant', titleZh: '去餐馆', available: false },
-          { id: 'a2-l5-u5', unitNumber: 5, titleEn: 'Movies', titleZh: '电影', available: false },
-          { id: 'a2-l5-u6', unitNumber: 6, titleEn: 'Clothes and outfits', titleZh: '衣服与服装', available: false },
+          { id: 'a2-l5-u1', unitNumber: 1, titleEn: 'Travel', titleZh: '旅行', available: true },
+          { id: 'a2-l5-u2', unitNumber: 2, titleEn: 'Making decisions', titleZh: '做决定', available: true },
+          { id: 'a2-l5-u3', unitNumber: 3, titleEn: 'Telling stories', titleZh: '讲述故事', available: true },
+          { id: 'a2-l5-u4', unitNumber: 4, titleEn: 'Going to a restaurant', titleZh: '去餐馆', available: true },
+          { id: 'a2-l5-u5', unitNumber: 5, titleEn: 'Movies', titleZh: '电影', available: true },
+          { id: 'a2-l5-u6', unitNumber: 6, titleEn: 'Clothes and outfits', titleZh: '衣服与搭配', available: true },
         ],
       },
       {
@@ -151,12 +175,12 @@ export const courseBands: CourseBand[] = [
         bandCode: 'A2',
         bandLabel: 'Elementary',
         units: [
-          { id: 'a2-l6-u1', unitNumber: 1, titleEn: 'Communicating at work', titleZh: '工作交流', available: false },
-          { id: 'a2-l6-u2', unitNumber: 2, titleEn: 'Going to the doctors', titleZh: '看病', available: false },
-          { id: 'a2-l6-u3', unitNumber: 3, titleEn: 'Problems and solutions', titleZh: '问题与解决方法', available: false },
-          { id: 'a2-l6-u4', unitNumber: 4, titleEn: 'Business socializing', titleZh: '商务社交', available: false },
-          { id: 'a2-l6-u5', unitNumber: 5, titleEn: 'Business proposals', titleZh: '商务方案', available: false },
-          { id: 'a2-l6-u6', unitNumber: 6, titleEn: 'Getting a service provider', titleZh: '获得一个服务供应商', available: false },
+          { id: 'a2-l6-u1', unitNumber: 1, titleEn: 'Communicating at work', titleZh: '工作交流', available: true },
+          { id: 'a2-l6-u2', unitNumber: 2, titleEn: 'Going to the doctors', titleZh: '看病', available: true },
+          { id: 'a2-l6-u3', unitNumber: 3, titleEn: 'Problems and solutions', titleZh: '问题与解决方法', available: true },
+          { id: 'a2-l6-u4', unitNumber: 4, titleEn: 'Business socializing', titleZh: '商务社交', available: true },
+          { id: 'a2-l6-u5', unitNumber: 5, titleEn: 'Business proposals', titleZh: '商务方案', available: true },
+          { id: 'a2-l6-u6', unitNumber: 6, titleEn: 'Getting a service provider', titleZh: '选择服务供应商', available: true },
         ],
       },
     ],
@@ -173,12 +197,12 @@ export const courseBands: CourseBand[] = [
         bandCode: 'B1',
         bandLabel: 'Intermediate',
         units: [
-          { id: 'b1-l7-u1', unitNumber: 1, titleEn: 'The future', titleZh: '将来', available: false },
-          { id: 'b1-l7-u2', unitNumber: 2, titleEn: 'Hopes and dreams', titleZh: '希望与梦想', available: false },
-          { id: 'b1-l7-u3', unitNumber: 3, titleEn: 'Interviewing', titleZh: '面试', available: false },
-          { id: 'b1-l7-u4', unitNumber: 4, titleEn: 'Television', titleZh: '电视', available: false },
-          { id: 'b1-l7-u5', unitNumber: 5, titleEn: 'Education', titleZh: '教育', available: false },
-          { id: 'b1-l7-u6', unitNumber: 6, titleEn: 'Dealing with information', titleZh: '处理信息', available: false },
+          { id: 'b1-l7-u1', unitNumber: 1, titleEn: 'The future', titleZh: '将来', available: true },
+          { id: 'b1-l7-u2', unitNumber: 2, titleEn: 'Hopes and dreams', titleZh: '希望与梦想', available: true },
+          { id: 'b1-l7-u3', unitNumber: 3, titleEn: 'Interviewing', titleZh: '面试', available: true },
+          { id: 'b1-l7-u4', unitNumber: 4, titleEn: 'Television', titleZh: '电视与节目', available: true },
+          { id: 'b1-l7-u5', unitNumber: 5, titleEn: 'Education', titleZh: '教育', available: true },
+          { id: 'b1-l7-u6', unitNumber: 6, titleEn: 'Dealing with information', titleZh: '处理信息', available: true },
         ],
       },
       {
@@ -188,12 +212,12 @@ export const courseBands: CourseBand[] = [
         bandCode: 'B1',
         bandLabel: 'Intermediate',
         units: [
-          { id: 'b1-l8-u1', unitNumber: 1, titleEn: 'Music', titleZh: '音乐', available: false },
-          { id: 'b1-l8-u2', unitNumber: 2, titleEn: 'Living better', titleZh: '生活得更美好', available: false },
-          { id: 'b1-l8-u3', unitNumber: 3, titleEn: 'Careers', titleZh: '职业生涯', available: false },
-          { id: 'b1-l8-u4', unitNumber: 4, titleEn: 'Business travel', titleZh: '商务旅行', available: false },
-          { id: 'b1-l8-u5', unitNumber: 5, titleEn: 'Products and innovation', titleZh: '产品和创新', available: false },
-          { id: 'b1-l8-u6', unitNumber: 6, titleEn: 'Relationships', titleZh: '关系', available: false },
+          { id: 'b1-l8-u1', unitNumber: 1, titleEn: 'Music', titleZh: '音乐', available: true },
+          { id: 'b1-l8-u2', unitNumber: 2, titleEn: 'Living better', titleZh: '生活得更美好', available: true },
+          { id: 'b1-l8-u3', unitNumber: 3, titleEn: 'Careers', titleZh: '职业生涯', available: true },
+          { id: 'b1-l8-u4', unitNumber: 4, titleEn: 'Business travel', titleZh: '商务旅行', available: true },
+          { id: 'b1-l8-u5', unitNumber: 5, titleEn: 'Products and innovation', titleZh: '产品和创新', available: true },
+          { id: 'b1-l8-u6', unitNumber: 6, titleEn: 'Relationships', titleZh: '关系与相处', available: true },
         ],
       },
       {
@@ -203,12 +227,12 @@ export const courseBands: CourseBand[] = [
         bandCode: 'B1',
         bandLabel: 'Intermediate',
         units: [
-          { id: 'b1-l9-u1', unitNumber: 1, titleEn: 'Eating out', titleZh: '外出用餐', available: false },
-          { id: 'b1-l9-u2', unitNumber: 2, titleEn: 'Negotiating', titleZh: '谈判', available: false },
-          { id: 'b1-l9-u3', unitNumber: 3, titleEn: 'Stages of life', titleZh: '人生各阶段', available: false },
-          { id: 'b1-l9-u4', unitNumber: 4, titleEn: 'Health and safety', titleZh: '健康与安全', available: false },
-          { id: 'b1-l9-u5', unitNumber: 5, titleEn: 'Moving to a new city', titleZh: '搬到一个新城市', available: false },
-          { id: 'b1-l9-u6', unitNumber: 6, titleEn: 'Social occasions', titleZh: '社交场合', available: false },
+          { id: 'b1-l9-u1', unitNumber: 1, titleEn: 'Eating out', titleZh: '外出用餐', available: true },
+          { id: 'b1-l9-u2', unitNumber: 2, titleEn: 'Negotiating', titleZh: '谈判', available: true },
+          { id: 'b1-l9-u3', unitNumber: 3, titleEn: 'Stages of life', titleZh: '人生各阶段', available: true },
+          { id: 'b1-l9-u4', unitNumber: 4, titleEn: 'Health and safety', titleZh: '健康与安全', available: true },
+          { id: 'b1-l9-u5', unitNumber: 5, titleEn: 'Moving to a new city', titleZh: '搬到一个新城市', available: true },
+          { id: 'b1-l9-u6', unitNumber: 6, titleEn: 'Social occasions', titleZh: '社交场合', available: true },
         ],
       },
     ],
@@ -588,6 +612,12 @@ export const unitDetails: Array<Omit<CourseUnitDetail, 'sentences'>> = [
   ...level2bUnitDetails,
   ...level3aUnitDetails,
   ...level3bUnitDetails,
+  ...level4UnitDetails,
+  ...level5UnitDetails,
+  ...level6UnitDetails,
+  ...level7UnitDetails,
+  ...level8UnitDetails,
+  ...level9UnitDetails,
 ]
 
 const sentenceGroups: Record<string, SentenceGroup> = {
@@ -596,6 +626,12 @@ const sentenceGroups: Record<string, SentenceGroup> = {
   ...level2bSentenceGroups,
   ...level3aSentenceGroups,
   ...level3bSentenceGroups,
+  ...level4SentenceGroups,
+  ...level5SentenceGroups,
+  ...level6SentenceGroups,
+  ...level7SentenceGroups,
+  ...level8SentenceGroups,
+  ...level9SentenceGroups,
 }
 
 export const unitDetailMap = Object.fromEntries(

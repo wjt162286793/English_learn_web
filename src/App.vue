@@ -8,6 +8,7 @@ import { courseBands, unitDetailMap } from './data/course'
 import {
   professionalSections,
   readingSections,
+  vocabularyMoreSections,
   vocabularySections,
 } from './data/studyLibrary'
 import type {
@@ -1182,6 +1183,7 @@ onBeforeUnmount(() => {
         v-else
         :mode="activeLibraryMode"
         :sections="activeLibrarySections"
+        :additional-sections="activeMode === 'vocabulary' ? vocabularyMoreSections : undefined"
         :show-english="showEnglish"
         :show-chinese="showChinese"
         :active-line-id="activeLineId"

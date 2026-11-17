@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import sys
+import unicodedata
 import urllib.request
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -161,6 +162,10 @@ _SENTENCE_ITEM_RE = re.compile(
     + _ANY_STRING
     + r")\s*,\s*note:"
 )
+_DRILL_GROUP_RE = re.compile(r"(?m)^\s*(['\"])([^'\"\n]+)\1\s*:\s*\[")
+_DRILL_ITEM_RE = re.compile(
+    r"(?m)^\s*\[\s*(" + _ANY_STRING + r")\s*,\s*(" + _ANY_STRING + r")\s*\],?\s*$"
+)
 _SENTENCE_LINE_RE = re.compile(r"^(\d+)\.\s*(.+)\s+[\u2014\u2013]\s+(.+)$")
 
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "'": "'", '"': '"', "\\": "\\", "`": "`", "0": "\0"}
@@ -255,6 +260,24 @@ def extract_sentences(sources: Dict[str, str]) -> List[dict]:
                     "source": name,
                 }
             )
+        drill_groups = list(_DRILL_GROUP_RE.finditer(text))
+        for index, group in enumerate(drill_groups):
+            end = (
+                drill_groups[index + 1].start()
+                if index + 1 < len(drill_groups)
+                else len(text)
+            )
+            group_id = group.group(2)
+            for sentence_index, drill in enumerate(
+                _DRILL_ITEM_RE.finditer(text, group.end(), end), start=1
+            ):
+                items.append(
+                    {
+                        "id": f"{group_id}-s{sentence_index}",
+                        "textEn": unescape_js(drill.group(1)),
+                        "source": name,
+                    }
+                )
     return items
 
 
@@ -269,6 +292,52 @@ def split_sentences(text: str) -> List[str]:
         for sentence in re.findall(r"[^.!?]+[.!?]+|[^.!?]+$", text)
         if sentence.strip()
     ]
+
+
+def id_part(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_value).strip("-") or "item"
+
+
+def extract_noun_rows(filename: str, item_prefix: str) -> List[dict]:
+    rows: List[dict] = []
+    category_index = 0
+    path = TOAI_DIR / filename
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"^##\s+(.+)$", raw_line)
+        if heading:
+            category_index += 1
+            continue
+        if category_index == 0 or not raw_line.startswith("|"):
+            continue
+        cells = raw_line.split("|")
+        if len(cells) < 6:
+            continue
+
+        word = strip_markdown(cells[1])
+        meaning = strip_markdown(cells[3])
+        example = strip_markdown(cells[4])
+        if (
+            not word
+            or word == "英文名词"
+            or re.fullmatch(r"-+", word)
+            or not example
+        ):
+            continue
+
+        rows.append(
+            {
+                "id": f"{item_prefix}-{category_index:02d}-{id_part(word)}",
+                "textEn": word,
+                "example": example,
+                "meaning": meaning,
+                "source": filename,
+            }
+        )
+
+    return rows
 
 
 def extract_library_lines() -> List[dict]:
@@ -297,30 +366,18 @@ def extract_library_lines() -> List[dict]:
             }
         )
 
-    noun_index = 0
-    current_noun_category = ""
-    for raw_line in (TOAI_DIR / "noun-img.md").read_text(encoding="utf-8").splitlines():
-        heading = re.match(r"^##\s+(.+)$", raw_line)
-        if heading:
-            current_noun_category = heading.group(1).strip()
-            continue
-        if not current_noun_category or not raw_line.startswith("|"):
-            continue
-        cells = raw_line.split("|")
-        if len(cells) < 6:
-            continue
-        word = strip_markdown(cells[1])
-        example = strip_markdown(cells[4])
-        if not word or word == "英文名词" or re.fullmatch(r"-+", word) or not example:
-            continue
-        noun_index += 1
-        items.append(
-            {
-                "id": f"library-noun-{noun_index:04d}",
-                "textEn": example,
-                "source": "noun-img.md",
-            }
-        )
+    for filename, item_prefix in (
+        ("noun-img.md", "library-noun"),
+        ("vocabulary-more.md", "library-more"),
+    ):
+        for noun in extract_noun_rows(filename, item_prefix):
+            items.append(
+                {
+                    "id": noun["id"],
+                    "textEn": noun["example"],
+                    "source": filename,
+                }
+            )
 
     abstract_index = 0
     pending_chinese = False
@@ -405,30 +462,18 @@ def extract_library_lines() -> List[dict]:
 def extract_library_words() -> List[dict]:
     """Extract vocabulary headwords and phrases for standalone pronunciation."""
     items: List[dict] = []
-    noun_index = 0
-    current_noun_category = ""
-    for raw_line in (TOAI_DIR / "noun-img.md").read_text(encoding="utf-8").splitlines():
-        heading = re.match(r"^##\s+(.+)$", raw_line)
-        if heading:
-            current_noun_category = heading.group(1).strip()
-            continue
-        if not current_noun_category or not raw_line.startswith("|"):
-            continue
-        cells = raw_line.split("|")
-        if len(cells) < 6:
-            continue
-        word = strip_markdown(cells[1])
-        example = strip_markdown(cells[4])
-        if not word or word == "英文名词" or re.fullmatch(r"-+", word) or not example:
-            continue
-        noun_index += 1
-        items.append(
-            {
-                "id": f"library-noun-{noun_index:04d}-word",
-                "textEn": word,
-                "source": "noun-img.md",
-            }
-        )
+    for filename, item_prefix in (
+        ("noun-img.md", "library-noun"),
+        ("vocabulary-more.md", "library-more"),
+    ):
+        for noun in extract_noun_rows(filename, item_prefix):
+            items.append(
+                {
+                    "id": f"{noun['id']}-word",
+                    "textEn": noun["textEn"],
+                    "source": filename,
+                }
+            )
 
     abstract_index = 0
     pending_chinese = False
@@ -511,12 +556,22 @@ def build_roles(lines: Iterable[dict]) -> Dict[str, str]:
     return roles
 
 
-def build_tasks(modes: Sequence[str]) -> Tuple[List[dict], Dict[str, str]]:
+def build_tasks(
+    modes: Sequence[str], scope: str = "all"
+) -> Tuple[List[dict], Dict[str, str]]:
     sources = read_data_sources()
-    lines = extract_lines(sources)
-    sentences = extract_sentences(sources)
-    library_lines = extract_library_lines()
-    library_words = extract_library_words()
+    lines = [] if scope in ("nouns", "library") else extract_lines(sources)
+    sentences = [] if scope in ("nouns", "library") else extract_sentences(sources)
+    library_lines = [] if scope == "course" else extract_library_lines()
+    library_words = [] if scope == "course" else extract_library_words()
+    if scope == "nouns":
+        noun_sources = {"noun-img.md", "vocabulary-more.md"}
+        library_lines = [
+            item for item in library_lines if item["source"] in noun_sources
+        ]
+        library_words = [
+            item for item in library_words if item["source"] in noun_sources
+        ]
     roles = build_roles(lines)
 
     tasks: List[dict] = []
@@ -710,6 +765,12 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         default="all",
         help="Which pronunciation mode to generate (default: all).",
     )
+    parser.add_argument(
+        "--scope",
+        choices=("all", "course", "nouns", "library"),
+        default="all",
+        help="Which content family to generate (default: all).",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Only print what would be generated.")
     parser.add_argument("--force", action="store_true", help="Regenerate files that already exist.")
     parser.add_argument("--limit", type=int, default=None, help="Only generate the first N files.")
@@ -720,7 +781,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     modes = MODES if args.mode == "all" else (args.mode,)
 
-    tasks, stats = build_tasks(modes)
+    tasks, stats = build_tasks(modes, args.scope)
     print(
         "Course data: "
         f"{stats['lines']} dialogue/article lines, "
@@ -728,6 +789,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         f"{stats['library_sentences']} Markdown study sentences, "
         f"{stats['library_words']} vocabulary headwords"
     )
+    print(f"Scope: {args.scope}")
     print(f"Modes: {', '.join(modes)} -> {len(tasks)} planned file(s)")
 
     if args.dry_run:

@@ -6,6 +6,7 @@ import type { StudyItem, StudyParagraph, StudySection } from '../data/studyLibra
 interface Props {
   mode: 'vocabulary' | 'reading' | 'professional'
   sections: StudySection[]
+  additionalSections?: StudySection[]
   showEnglish: boolean
   showChinese: boolean
   activeLineId: string
@@ -24,9 +25,20 @@ const emit = defineEmits<{
 const activeSectionId = ref('')
 const search = ref('')
 const categorySearch = ref('')
+const showMoreCategories = ref(false)
 const failedImageIds = ref<Set<string>>(new Set())
 const itemVisibility = ref<Record<string, { word: boolean; sentence: boolean }>>({})
 const paragraphVisibility = ref<Record<string, boolean>>({})
+const allSections = computed(() => [
+  ...props.sections,
+  ...(props.additionalSections ?? []),
+])
+const showAdditionalCategoryList = computed(
+  () => showMoreCategories.value || Boolean(categorySearch.value.trim()),
+)
+const availableSections = computed(() =>
+  showAdditionalCategoryList.value ? allSections.value : props.sections,
+)
 
 watch(
   () => props.showEnglish,
@@ -40,6 +52,7 @@ watch(
   () => props.sections.map((section) => section.id).join('|'),
   () => {
     activeSectionId.value = props.sections[0]?.id ?? ''
+    showMoreCategories.value = false
     failedImageIds.value = new Set()
     categorySearch.value = ''
     itemVisibility.value = {}
@@ -52,6 +65,7 @@ watch(
   () => props.navigationResetKey,
   () => {
     activeSectionId.value = props.sections[0]?.id ?? ''
+    showMoreCategories.value = false
     search.value = ''
     categorySearch.value = ''
   },
@@ -61,11 +75,11 @@ watch(
   () =>
     `${activeSectionId.value}|${search.value.trim()}|${props.sections
       .map((section) => section.id)
-      .join('|')}`,
+      .join('|')}|${props.additionalSections?.map((section) => section.id).join('|') ?? ''}`,
   () => {
     const section = search.value.trim()
       ? null
-      : (props.sections.find((candidate) => candidate.id === activeSectionId.value) ?? null)
+      : (allSections.value.find((candidate) => candidate.id === activeSectionId.value) ?? null)
     emit('section-change', section)
   },
   { immediate: true },
@@ -77,6 +91,17 @@ const visibleCategorySections = computed(() => {
     return props.sections
   }
   return props.sections.filter((section) =>
+    `${section.titleEn} ${section.titleZh}`.toLocaleLowerCase().includes(query),
+  )
+})
+
+const visibleAdditionalSections = computed(() => {
+  const query = categorySearch.value.trim().toLocaleLowerCase()
+  const sections = props.additionalSections ?? []
+  if (!query) {
+    return sections
+  }
+  return sections.filter((section) =>
     `${section.titleEn} ${section.titleZh}`.toLocaleLowerCase().includes(query),
   )
 })
@@ -98,10 +123,10 @@ const categoryEyebrow = computed(() => {
 const matchingSections = computed(() => {
   const query = search.value.trim().toLocaleLowerCase()
   if (!query) {
-    return props.sections.filter((section) => section.id === activeSectionId.value)
+    return availableSections.value.filter((section) => section.id === activeSectionId.value)
   }
 
-  return props.sections
+  return availableSections.value
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => itemMatches(item, query)),
@@ -114,7 +139,7 @@ const matchingSections = computed(() => {
 })
 
 const totalItems = computed(() =>
-  props.sections.reduce((count, section) => count + section.items.length, 0),
+  availableSections.value.reduce((count, section) => count + section.items.length, 0),
 )
 
 const visibleItemCount = computed(() =>
@@ -148,6 +173,26 @@ function itemLines(item: StudyItem): LessonLine[] {
     ...(item.line ? [item.line] : []),
     ...(item.paragraphs ?? []).flatMap((paragraph) => paragraph.sentences),
   ]
+}
+
+function selectCategory(section: StudySection): void {
+  activeSectionId.value = section.id
+  search.value = ''
+  if (props.additionalSections?.some((candidate) => candidate.id === section.id)) {
+    showMoreCategories.value = true
+  }
+}
+
+function toggleMoreCategories(): void {
+  showMoreCategories.value = !showMoreCategories.value
+  categorySearch.value = ''
+  search.value = ''
+  if (showMoreCategories.value) {
+    activeSectionId.value =
+      props.additionalSections?.[0]?.id ?? props.sections[0]?.id ?? ''
+  } else if (props.additionalSections?.some((section) => section.id === activeSectionId.value)) {
+    activeSectionId.value = props.sections[0]?.id ?? ''
+  }
 }
 
 function playSection(section: StudySection): void {
@@ -232,7 +277,7 @@ function imageFallback(item: StudyItem): string {
           <p class="library-eyebrow">{{ categoryEyebrow }}</p>
           <h2>{{ categoryTitle }}</h2>
         </div>
-        <span>{{ sections.length }}</span>
+        <span>{{ allSections.length }}</span>
       </div>
       <label class="category-search">
         <span aria-hidden="true">⌕</span>
@@ -246,12 +291,51 @@ function imageFallback(item: StudyItem): string {
           :class="{ 'category-chip--active': activeSectionId === section.id && !search }"
           :aria-pressed="activeSectionId === section.id && !search"
           type="button"
-          @click="(activeSectionId = section.id), (search = '')"
+          @click="selectCategory(section)"
         >
           <span class="category-chip__title">{{ section.titleEn }}</span>
           <small>{{ section.items.length }}</small>
         </button>
-        <p v-if="visibleCategorySections.length === 0" class="category-empty">
+        <button
+          v-if="additionalSections?.length"
+          class="category-chip category-chip--more"
+          :class="{ 'category-chip--active': showAdditionalCategoryList }"
+          :aria-expanded="showAdditionalCategoryList"
+          type="button"
+          @click="toggleMoreCategories"
+        >
+          <span class="category-chip__title">更多领域</span>
+          <small>{{ additionalSections.length }}</small>
+        </button>
+        <div
+          v-if="additionalSections?.length && showAdditionalCategoryList"
+          class="library-categories library-categories--vertical library-categories--nested"
+          role="group"
+          aria-label="更多领域"
+        >
+          <button
+            v-for="section in visibleAdditionalSections"
+            :key="section.id"
+            class="category-chip"
+            :class="{ 'category-chip--active': activeSectionId === section.id && !search }"
+            :aria-pressed="activeSectionId === section.id && !search"
+            type="button"
+            @click="selectCategory(section)"
+          >
+            <span class="category-chip__title">{{ section.titleEn }}</span>
+            <small>{{ section.items.length }}</small>
+          </button>
+          <p
+            v-if="visibleAdditionalSections.length === 0 && visibleCategorySections.length === 0"
+            class="category-empty"
+          >
+            没有匹配的分类
+          </p>
+        </div>
+        <p
+          v-if="visibleCategorySections.length === 0 && !showAdditionalCategoryList"
+          class="category-empty"
+        >
           没有匹配的分类
         </p>
       </nav>
@@ -716,6 +800,18 @@ function imageFallback(item: StudyItem): string {
 .library-categories--vertical .category-chip--active {
   border-color: #e5dcff;
   background: #f3efff;
+}
+
+.library-categories--nested {
+  min-height: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 2px 0 4px;
+  overflow: visible;
+  padding-left: 9px;
+  padding-right: 0;
+  border-left: 1px solid #ece7f4;
 }
 
 .library-section {

@@ -1,4 +1,5 @@
 import nounMarkdown from '../../toai/noun-img.md?raw'
+import moreVocabularyMarkdown from '../../toai/vocabulary-more.md?raw'
 import abstractMarkdown from '../../toai/abstract-noun-verb-sentences.md?raw'
 import phraseMarkdown from '../../toai/common-phrases-with-simple-words.md?raw'
 import articleMarkdown from '../../toai/short-english-articles-bilingual.md?raw'
@@ -34,6 +35,17 @@ function stripMarkdown(value: string): string {
   return value.replace(/\*\*/g, '').replace(/<br\s*\/?>/gi, '').trim()
 }
 
+function toIdPart(value: string): string {
+  return (
+    value
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'item'
+  )
+}
+
 function makeLine(id: string, textEn: string, textZh = ''): LessonLine {
   return { id, textEn: stripMarkdown(textEn), textZh }
 }
@@ -44,16 +56,21 @@ function splitSentences(text: string): string[] {
     .filter(Boolean)
 }
 
-function parseNouns(markdown: string): StudySection[] {
+function parseNouns(
+  markdown: string,
+  itemPrefix = 'library-noun',
+  sectionPrefix = 'noun-category',
+): StudySection[] {
   const sections: StudySection[] = []
   let current: StudySection | undefined
-  let index = 0
+  let categoryIndex = 0
 
   for (const line of markdown.split(/\r?\n/)) {
     const heading = /^##\s+(.+)$/.exec(line)
     if (heading) {
+      categoryIndex += 1
       current = {
-        id: `noun-category-${sections.length + 1}`,
+        id: `${sectionPrefix}-${categoryIndex}`,
         titleEn: heading[1].trim(),
         titleZh: '',
         items: [],
@@ -79,8 +96,7 @@ function parseNouns(markdown: string): StudySection[] {
       continue
     }
 
-    index += 1
-    const id = `library-noun-${String(index).padStart(4, '0')}`
+    const id = `${itemPrefix}-${String(categoryIndex).padStart(2, '0')}-${toIdPart(word)}`
     current.items.push({
       id,
       titleEn: word,
@@ -311,6 +327,11 @@ function parseLevelOne(markdown: string): StudySection[] {
 }
 
 const nounSections = parseNouns(nounMarkdown)
+export const vocabularyMoreSections = parseNouns(
+  moreVocabularyMarkdown,
+  'library-more',
+  'vocabulary-more-category',
+)
 const abstractSections = parseAbstractSentences(abstractMarkdown)
 const phraseSections = parsePhrases(phraseMarkdown)
 
