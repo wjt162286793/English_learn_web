@@ -1,0 +1,38 @@
+{
+  "presentation_goal": "提供一套可替换截图和文字的 DCTC 样本管理系统操作手册 PPT 母版。",
+  "audience": "医院样本管理人员、项目人员和系统操作培训对象。",
+  "theme_style": "浅色医疗科技风，主色为 #05e4ff，辅以深蓝灰文字、浅青卡片和细边框，简约大方。",
+  "visual_system": {
+    "background_strategy": "封面使用整页浅青医疗背景占位；普通页面使用 #f5f9fb 浅底，配白色内容卡片。",
+    "motif": "青色编号节点、圆角白卡片、左上标题和右下页码。",
+    "color_roles": {
+      "primary": "#05e4ff",
+      "secondary": "#dff8fb",
+      "accent": "#176b86"
+    },
+    "cover_content_relationship": "封面使用浅青冷光视觉，内容页通过主色、卡片和编号节点保持一致。",
+    "closing_relationship": "结尾页复用封面的浅青冷光氛围。"
+  },
+  "typography_constraints": {
+    "title_max_lines": 2,
+    "body_max_lines_per_box": 4,
+    "footer_max_lines": 1,
+    "long_text_handling": "正文以可替换短句和提示语为主，实际操作说明由使用者替换。"
+  },
+  "verification_plan": {
+    "check_background_consistency": true,
+    "check_text_fit": true,
+    "check_visual_focus": true,
+    "check_asset_rendering": true
+  },
+  "slides": [
+    {"page": 1, "title": "DCTC 样本管理系统操作手册", "key_message": "建立统一的系统操作手册封面。", "layout_type": "title-cover", "visual_focus": "登录背景图占位区域", "asset_need": {"asset_type": "screenshot", "purpose": "承载系统登录页背景。", "suggested_query": "DCTC 登录页背景图", "fallback_if_missing": "使用浅青医疗科技背景和可替换图片占位。"}, "text_density": "low", "speaker_intent": "建立系统品牌和文档主题。"},
+    {"page": 2, "title": "目录", "key_message": "展示 18 个操作模块，方便快速定位。", "layout_type": "two-column", "visual_focus": "双栏编号目录", "asset_need": {"asset_type": "none", "purpose": "目录以编号和层级表达即可。", "suggested_query": "", "fallback_if_missing": "使用双栏卡片目录。"}, "text_density": "high", "speaker_intent": "让读者快速理解手册结构。"},
+    {"page": 3, "title": "样本管理", "key_message": "进入样本管理章节前，先展示模块范围。", "layout_type": "section-divider", "visual_focus": "章节编号与模块关键词", "asset_need": {"asset_type": "infographic", "purpose": "强化章节识别。", "suggested_query": "medical sample management infographic", "fallback_if_missing": "使用青色圆形编号、关键词卡片和简洁几何背景。"}, "text_density": "low", "speaker_intent": "切换章节节奏。"},
+    {"page": 4, "title": "样本管理｜子目录", "key_message": "说明本章节包含的子模块。", "layout_type": "two-column", "visual_focus": "主标题与子模块卡片", "asset_need": {"asset_type": "none", "purpose": "子目录不需要外部素材。", "suggested_query": "", "fallback_if_missing": "使用模块卡片和空白单标题卡片。"}, "text_density": "medium", "speaker_intent": "为后续操作页建立导航。"},
+    {"page": 5, "title": "页面操作说明模板", "key_message": "大图左、说明右，适合展示完整页面截图。", "layout_type": "image-left-text-right", "visual_focus": "左侧 70% 截图占位", "asset_need": {"asset_type": "screenshot", "purpose": "展示系统页面整体结构。", "suggested_query": "hospital sample management system screenshot", "fallback_if_missing": "使用带浏览器边框的截图占位框，并保留可替换提示。"}, "text_density": "medium", "speaker_intent": "承载首页、列表页或详情页说明。"},
+    {"page": 6, "title": "步骤操作说明模板", "key_message": "左侧纵向截图、右侧逐条说明，适合流程操作。", "layout_type": "two-column", "visual_focus": "左侧 2-3 张纵向截图占位", "asset_need": {"asset_type": "screenshot", "purpose": "展示操作步骤变化。", "suggested_query": "hospital system form workflow screenshots", "fallback_if_missing": "使用 3 个带步骤编号的截图占位框。"}, "text_density": "medium", "speaker_intent": "承载表单提交和连续操作。"},
+    {"page": 7, "title": "表格与表单说明模板", "key_message": "为传统表格展示、查询和提交场景提供版式。", "layout_type": "comparison", "visual_focus": "表格区域和字段说明卡片", "asset_need": {"asset_type": "screenshot", "purpose": "展示表格与表单的关键区域。", "suggested_query": "hospital management table form screenshot", "fallback_if_missing": "使用表格示意和字段说明卡片。"}, "text_density": "high", "speaker_intent": "承载字段解释、按钮说明和注意事项。"},
+    {"page": 8, "title": "操作要点与备注", "key_message": "为章节结尾保留注意事项、权限和异常处理。", "layout_type": "conclusion", "visual_focus": "要点卡片和结束语", "asset_need": {"asset_type": "none", "purpose": "使用简洁文本卡片即可。", "suggested_query": "", "fallback_if_missing": "使用 3 张要点卡片和章节结束提示。"}, "text_density": "medium", "speaker_intent": "收束章节并提示使用者补充内容。"}
+  ]
+}
